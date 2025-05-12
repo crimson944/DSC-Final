@@ -1,0 +1,259 @@
+---
+title: "Depression Trends Amongst Students in India"
+author: "Crimson Dyche and Ryan Ward"
+subtitle: "Due May 14th, 2025 at 11:59 pm"
+format: 
+  html:
+    embed-resources: true
+---
+
+## What factors lead to a student having depression?
+
+Depression in academia is common event in today's student body. Understanding what conditions lead to a student's decent into depression and/or worse suicidal thoughts/ideations might be useful for clinicians and academic administrators. Ideally, this data can be used to help keep students safe and try to improve the academic population's mental health.
+
+### [Data Set]{.underline}
+
+The Data Set used for this study was from *Analyzing Mental Health Trends and Predictors Among Students* collected by Shodolamu Opeyemi who is a data scientist based in India. URL:https://www.kaggle.com/datasets/hopesb/student-depression-dataset
+
+There are 27901 observations of 18 variables in Opeyemi's dataset which come from a survey filled out by participants. Given that the data was from self-surveyed responses there is a risk that these results are skewed or have some bias.
+
+### [Variables:]{.underline}
+
+**Response Variables**: Depression and Have you ever had suicidal thoughts which ware both yes or no questions. Depression however has 1 indicating yes and 0 indicating no.
+
+**Explanatory Variables**: Consists of personal demographics, academic indicators, and lifestyle/well-being information.
+
+-   **Personal Demographics:** Age, Gender, City, Profession, Degree, Family History of Mental Illness.
+
+-   **Academic Indicators:** CGPA, Academic Pressure, Study Satisfaction
+
+-   **Lifestyle & Well-Being:** Sleep Duration, Dietary Habits, Work Pressure, Job Satisfaction, Work/Study Hours, Financial Stress.
+
+### [**What Are the Leading Causes of Depression in Students?**]{.underline}
+
+```{r, message=FALSE, warning=FALSE}
+#Major contributors to code will be commented here. Data analysis was done equally by both partners with Ryan serving as the final editor for text with Crimson's permission. 
+
+library(tidyr)
+library(data.table)
+library(tidyverse)
+library(infer)
+library(mosaic)
+library(openintro)
+library(ggplot2)
+library(tibble)
+library(devtools)
+library(ggbiplot)
+library(dslabs)
+library(purrr)
+library(cluster)
+library(readxl)
+library(factoextra)
+library(randomForest)
+library(Metrics)
+library(rpart)
+library(rattle)
+
+Student_Depression = read.csv("student_depression_dataset.csv")
+```
+
+```{r, message=FALSE, warning=FALSE}
+#Crimson
+set.seed(420)
+test_id <- sample(1:nrow(Student_Depression), size = round(0.2 * nrow(Student_Depression)))
+test <- Student_Depression[test_id, ] 
+train <- Student_Depression[-test_id, ]
+```
+
+```{r,message=FALSE, warning=FALSE}
+#| echo: false
+#| label: fig-fig1
+#| fig-cap: "Random forest used to predict the chances of a student having depression. A confusion matrix is provided to determine the forest's ability of accurately classifying a student's mental health status." 
+
+#Crimson
+library(readr)
+library(kableExtra)
+library(randomForest)
+library(Metrics)
+library(dplyr)  
+
+set.seed(420)
+Student_Depression <- na.omit(Student_Depression)
+
+forest <- randomForest(
+  as.factor(Depression) ~ Gender + Age + City + Profession + Academic.Pressure + Work.Pressure + CGPA + Study.Satisfaction+ Job.Satisfaction + Sleep.Duration + Dietary.Habits + Degree + Work.Study.Hours + Financial.Stress + Family.History.of.Mental.Illness,
+  data = train,
+  ntree = 150,
+  mtry = 4
+)
+forest
+```
+
+**Analysis:** The random forest constructed here predicts the depression status of a student. It yielded an overall error rate of 21.09% with a confusion matrix showing a false negative rate of 15.1169% and a false positive rate of 29.10407% with each prediction.
+
+This error rate can be problematic as the random forest has more than a 1 in 4 chance of misdiagnosing a student with depression leading to the chance of wasting necessary resources (counselors/psychiatrists, medications, etc.) on a person who does not need it. There is a more than 1 in 8 chance of missing a student suffering from depression of course is also risky as those missed students aren't getting the necessary care they need.
+
+```{r,message=FALSE, warning=FALSE}
+#| echo: false
+#| label: fig-fig2
+#| fig-cap: "Mean Gini Index of variables that contribute to a student's mental health. The higher the Gini Index value, the more likely a variable will contribute to a student's chances of having depression." 
+
+#Crimson
+randomForest::importance(forest) %>%
+  as.data.frame() %>%
+  rownames_to_column(var = "Variable") %>%
+  arrange(desc(MeanDecreaseGini))
+```
+
+**Analysis:** With the Gini Index it can be seen that the top five most important variables connected to determine student depression are `Academic.Pressure`, `Financial.Stress`, `CGPA`, `Age`, and `City`. The top four variables make the most sense as to why they contribute to a student's depression status within a traditional academic environment. City seemed originally more obscure however, after some consideration, the environment of a person outside of academics definitely can influence a person's overall mental health if that space is in poor quality due to crime, poverty, pollution, etc.
+
+```{r,message=FALSE, warning=FALSE}
+#| echo: false
+#| label: fig-fig3
+#| fig-cap: "Featured importance that measures each variables' contribution to a student's depression status."
+
+#Crimson
+set.seed(420)
+depression_important_forest <- randomForest(
+  as.factor(Depression) ~ Academic.Pressure + CGPA + Age + Financial.Stress + City,
+  data = train,
+  ntree = 150,
+  mtry = 4
+)
+depression_important_forest
+```
+
+**Analysis:** Using the top five Gini Index values the important forest is able to determine how significant these variables contribute to student depression. The forest produced an overall error of 26.04% and its respective confusion matrix calculating a false positive rate of 34.06463% and a false negative rate of 20.36272%. This means there is a 34.06463% chance one or more of the top five variables is considered to contribute towards a student's depression when it is that variable might not. Alternatively, the 20.36272% false negative chance means the important forest neglects a variable when considering a variable's influence on a student's depression.
+
+```{r,message=FALSE, warning=FALSE}
+#| echo: false
+#| label: fig-fig4
+#| fig-cap: "Decision tree predicting the chances of a student having depression."
+
+#Crimson
+library(rpart)
+library(rattle)
+tree <-rpart( as.factor(Depression) ~ Academic.Pressure + CGPA + Age + Financial.Stress + City, data=train, method='class')
+
+
+fancyRpartPlot(tree)
+
+#Ryan
+Depressed_Test <- test %>%  
+  mutate(prediction = predict(tree, type='class', newdata=test))
+         
+confusion <- mosaic::tally(prediction ~ Depression, data=Depressed_Test)
+confusion
+sum(diag(confusion)) / nrow(Depressed_Test)
+```
+
+**Analysis:** First the decision tree separates students by measuring `Academic.Pressure` and whether they have a value of 2.5 or higher. 32% of students have an academic pressure value less than 2.5 are not depressed, with the rest of the students have a pressure value higher than 2.5.
+
+Next, the remaining 68% of students are separated by `Financial.Stress` and whether they have a value of 1.0 or 2.0. The the 46% of students who do not have a low financial stress level (i.e. on that is 3.0 or higher) are predicted to be depressed. The remaining students with a low financial stress value are *temporarily* categorized as depressed until the next step.
+
+Finally, the remain students 22% with a low financial stress value are separated by academic pressure again however based on whether a student has a pressure value of 3.5 or higher. The 13% of predicted students with low financial stress and an academic pressure level over 3.5 remained categorized as depressed.
+
+After which the remaining 9% of students with a academic pressure greater than 2.5 but less than 3.5 are no longer predicted to be depressed.
+
+With a confusion matrix value of **1** the model appears to be 100% accurate within this data set leading to high confidence in predicting a students depression provided a student filled out their survey honestly. However, recall that there is still possible bias with this data as it comes from self-surveyed information.
+
+### [**Connection Between Student Depression and Suicidal Thoughts**]{.underline}
+
+Next the prediction on suicidal thoughts was examined. Given suicidal thoughts and tendencies are one of the more extreme symptoms of depression a Chi-Squared Test of Independence was used to confirm whether depression and suicidal thoughts are correlated.
+
+```{r,message=FALSE, warning=FALSE}
+#| echo: false
+#| label: fig-fig5
+#| fig-cap: "Chi-squared test used to determine the indepence between student depression and whether a student has suicidal thoughts." 
+
+#Ryan
+
+set.seed(13)
+contingency_table <- table(Student_Depression$Depression, Student_Depression$Have.you.ever.had.suicidal.thoughts..)
+
+chi_square_test <- chisq.test(contingency_table)
+
+print(chi_square_test)
+```
+
+With a calculated p-value of less than 2.2e-16 and a confidence interval of $\alpha$ = 0.01 a the relationship between depression and suicidal thoughts seems to exist with statistical significance. This makes sense logically in terms of society, but it is useful to confirmed mathematically before running random and importance forests using the `Depression` response variable as an explanitory variable in both models.
+
+```{r,message=FALSE, warning=FALSE}
+#| echo: false
+#| label: fig-fig6
+#| fig-cap: "Random forest used to predict the chances of a student having suicidal thoughts A confusion matrix is provided to determine the forest's ability of accurately predicting whether a student has suicidal thoughts." 
+
+#Crimson
+set.seed(13)
+forest_suc<- randomForest(
+  as.factor(Have.you.ever.had.suicidal.thoughts..) ~ Depression + Gender + Age + City + Profession + Academic.Pressure + Work.Pressure + CGPA + Study.Satisfaction+ Job.Satisfaction + Sleep.Duration + Dietary.Habits + Degree + Work.Study.Hours + Financial.Stress + Family.History.of.Mental.Illness,
+  data = train,
+  ntree = 150,
+  mtry = 4
+)
+forest_suc
+```
+
+**Analysis:** The random forest used a student's suicidal nature has an overall error rate of 22.22%. The confusion matrix elaborates on this error showing a false negative rate of 20.02548% and a false positive rate of 26.00683%.
+
+This of course is problematic as the forest has almost a 1 in 4 chance of falsely predicting a student to be suicidal when they are not. Furthermore, the 1 in 5 chance of missing a suicidal student could be incredibly dangerous as a person with suicidal thoughts left without help could be a serious danger to themselves.
+
+```{r,message=FALSE, warning=FALSE}
+#| echo: false
+#| label: fig-fig7
+#| fig-cap: "Mean Gini Index of evaluating a student's chance of suicidal thoughts. The higher the Gini Index value, the more likely a variable will contribute to a student's chances of having suicidal thoughts."
+
+#Crimson
+set.seed(13)
+randomForest::importance(forest_suc) %>%
+  as.data.frame() %>%
+  rownames_to_column(var = "Variable") %>%
+  arrange(desc(MeanDecreaseGini))
+```
+
+**Analysis:** The Gini Index has identified the top five most important variables in relation to a students suicidal thoughts. Based on Gini values `Depression`, `CGPA`, `City`, `Degree`, and `Age`. `City`, `CGPA`, and `Age` are factors that also influence general depression chances in students, however, `Degree` and `Work.Hours.Study` are different. This in theory makes sense as arguably when in commons to academic degrees some programs are more challenging than others which can contribute towards a worse state in mental health. Similarly study time also can make sense, studying longer interferes with a students ability to do other things such as sleep, work, live outside of academics, etc. The more a student does this the further drain it can have on a student's psyche.
+
+```{r,message=FALSE, warning=FALSE}
+#| echo: false
+#| label: fig-fig8
+#| fig-cap: "Featured importance that measures each variables' contribution to a student's possible suicidal thoughts."
+
+#Crimson
+set.seed(13)
+suicide_important_forest <- randomForest(
+  as.factor(Have.you.ever.had.suicidal.thoughts..) ~CGPA + Depression + City + Degree + Age,
+  data = train,
+  ntree = 150,
+  mtry = 4
+)
+suicide_important_forest
+```
+
+**Analysis:** With the top five Gini Index values the important forest is able to determine how significant each are when contributing whether a student has suicidal thoughts. The error of the overall important forest is 25.33%, a false negative rate of 35.50159% and a false positive rate of 19.42380% the error is higher than the random forest.
+
+```{r,message=FALSE, warning=FALSE}
+#| echo: false
+#| label: fig-fig9
+#| fig-cap: "Decision tree predicting the chances of a student having suicidal thoughts."
+
+#Ryan
+
+suicidal_tree <- rpart(Have.you.ever.had.suicidal.thoughts.. ~ Depression, data = train, method = 'class', control = rpart.control(minsplit = 1, cp = 0))
+
+Suicidal_Test <- test %>%  
+  mutate(prediction = predict(suicidal_tree, type='class', newdata=test))
+         
+confusion <- mosaic::tally(prediction ~ Have.you.ever.had.suicidal.thoughts.., data=Suicidal_Test)
+confusion
+sum(diag(confusion)) / nrow(Suicidal_Test)
+
+fancyRpartPlot(suicidal_tree)
+```
+
+**Analysis:** The decision tree is suggesting that are depression and that have suicidal thoughts seem to be 59% of the student populous. That's pretty concerning, but with the constructed confusion matrix 77.68817% there is still room for error meaning this could be potentially fewer students with suicidal thoughts than predicted. This also can mean the tree is falsely predict a person who isn't suicidal to be so and completely miss a suicidal student is dangerous for students' safety.
+
+### [Conclusion]{.underline}
+
+After examining the data set it can be concluded there is a way to somewhat predict how students across India become depressed during their academic journey. It can be observed that student's academic and financial stress, age, and city have a high influence on their depression status. This can be modeled with extreme accuracy in the given decision tree in *figure 4*.
+
+In terms of predicting suicidal thoughts in students it was confirmed that there is a connection to a student's depression status. Depression was also confirmed to be the greatest contributor to suicidal thoughts in students along with cumulative GPA, city location, degree of choice and their age. These factors are to nebulous to create a larger decision tree beyond relating depression to suicidal thoughts. This unfortunately makes sense given the important variables mentioned in this report, however it can be shown depression status in students can be predicted.
