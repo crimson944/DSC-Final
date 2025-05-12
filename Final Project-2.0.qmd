@@ -105,7 +105,7 @@ randomForest::importance(forest) %>%
   arrange(desc(MeanDecreaseGini))
 ```
 
-**Analysis:** With the Gini Index it can be seen that the top five most important variables connected to determine student depression are `Academic.Pressure`, `Financial.Stress`, `CGPA`, and  `Age`. The top four variables make the most sense as to why they contribute to a student's depression status within a traditional academic environment. City seemed originally more obscure however, after some consideration, the environment of a person outside of academics definitely can influence a person's overall mental health if that space is in poor quality due to crime, poverty, pollution, etc.
+**Analysis:** With the Gini Index it can be seen that the top five most important variables connected to determine student depression are `Academic.Pressure`, `Financial.Stress`, `CGPA`, and  `Age`. The top four variables make the most sense as to why they contribute to a student's depression status within a traditional academic environment. 
 
 ```{r,message=FALSE, warning=FALSE}
 #| echo: false
