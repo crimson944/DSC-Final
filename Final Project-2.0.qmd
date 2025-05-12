@@ -105,7 +105,7 @@ randomForest::importance(forest) %>%
   arrange(desc(MeanDecreaseGini))
 ```
 
-**Analysis:** With the Gini Index it can be seen that the top five most important variables connected to determine student depression are `Academic.Pressure`, `Financial.Stress`, `CGPA`, `Age`, and `City`. The top four variables make the most sense as to why they contribute to a student's depression status within a traditional academic environment. City seemed originally more obscure however, after some consideration, the environment of a person outside of academics definitely can influence a person's overall mental health if that space is in poor quality due to crime, poverty, pollution, etc.
+**Analysis:** With the Gini Index it can be seen that the top five most important variables connected to determine student depression are `Academic.Pressure`, `Financial.Stress`, `CGPA`, and  `Age`. The top four variables make the most sense as to why they contribute to a student's depression status within a traditional academic environment. City seemed originally more obscure however, after some consideration, the environment of a person outside of academics definitely can influence a person's overall mental health if that space is in poor quality due to crime, poverty, pollution, etc.
 
 ```{r,message=FALSE, warning=FALSE}
 #| echo: false
@@ -115,7 +115,7 @@ randomForest::importance(forest) %>%
 #Crimson
 set.seed(420)
 depression_important_forest <- randomForest(
-  as.factor(Depression) ~ Academic.Pressure + CGPA + Age + Financial.Stress + City,
+  as.factor(Depression) ~ Academic.Pressure + CGPA + Age + Financial.Stress,
   data = train,
   ntree = 150,
   mtry = 4
@@ -133,7 +133,7 @@ depression_important_forest
 #Crimson
 library(rpart)
 library(rattle)
-tree <-rpart( as.factor(Depression) ~ Academic.Pressure + CGPA + Age + Financial.Stress + City, data=train, method='class')
+tree <-rpart( as.factor(Depression) ~ Academic.Pressure + CGPA + Age + Financial.Stress , data=train, method='class')
 
 
 fancyRpartPlot(tree)
